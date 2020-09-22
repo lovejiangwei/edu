@@ -153,7 +153,11 @@ public class  EduCourseServiceImpl extends ServiceImpl<EduCourseMapper, EduCours
         //4、删除描述信息
         eduCourseDescriptionService.removeById(id);
         //5、删除课程信息
-        baseMapper.deleteById(id);
+        boolean b = this.removeById(id);
+        if(!b){
+            throw new MyException(20001,"删除失败");
+        }
+
     }
 
 
