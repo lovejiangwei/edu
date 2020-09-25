@@ -2,6 +2,8 @@ package com.jw.eduservice.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jw.commonutils.R;
+import com.jw.eduservice.client.VodClient;
 import com.jw.eduservice.entity.EduChapter;
 import com.jw.eduservice.entity.EduCourse;
 import com.jw.eduservice.entity.EduCourseDescription;
@@ -22,6 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
+
 /**
  * <p>
  * 课程 服务实现类
@@ -39,6 +43,8 @@ public class  EduCourseServiceImpl extends ServiceImpl<EduCourseMapper, EduCours
     EduVideoService eduVideoService;
     @Autowired
     EduChapterService eduChapterService;
+    @Autowired
+    VodClient vodClient;
     //添加课程表基本信息
     @Override
     @Transactional
@@ -140,11 +146,17 @@ public class  EduCourseServiceImpl extends ServiceImpl<EduCourseMapper, EduCours
     @Override
     @Transactional
     public void deleteCourseById(String id) {
-        //1、删除视频 TODO
-
-        //2、删除小节
         QueryWrapper<EduVideo> videoQueryWrapper = new QueryWrapper<>();
         videoQueryWrapper.eq("course_id",id);
+        //获取需要删除的视频资源id
+        List<EduVideo> videoList = eduVideoService.list(videoQueryWrapper);
+        String videoIds = "";
+        for (EduVideo eduVideo : videoList) {
+            if(!StringUtils.isEmpty(eduVideo.getVideoSourceId())){
+                videoIds+=eduVideo.getVideoSourceId()+",";
+            }
+        }
+        //2、删除小节
         eduVideoService.remove(videoQueryWrapper);
         //3、删除章节信息
         QueryWrapper<EduChapter> chapterQueryWrapper = new QueryWrapper<>();
@@ -154,6 +166,14 @@ public class  EduCourseServiceImpl extends ServiceImpl<EduCourseMapper, EduCours
         eduCourseDescriptionService.removeById(id);
         //5、删除课程信息
         boolean b = this.removeById(id);
+        //删除视频
+        if(!StringUtils.isEmpty(videoIds)){
+            videoIds = videoIds.substring(0,videoIds.length()-1);
+            R r = vodClient.deleteVideoById(videoIds);
+            if(!r.getSuccess()){
+                throw new MyException(20001,"删除视频失败");
+            }
+        }
         if(!b){
             throw new MyException(20001,"删除失败");
         }

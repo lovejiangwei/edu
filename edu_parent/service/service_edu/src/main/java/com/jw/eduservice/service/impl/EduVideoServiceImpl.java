@@ -1,11 +1,16 @@
 package com.jw.eduservice.service.impl;
 
+import com.jw.commonutils.R;
+import com.jw.eduservice.client.VodClient;
 import com.jw.eduservice.entity.EduVideo;
 import com.jw.eduservice.mapper.EduVideoMapper;
 import com.jw.eduservice.service.EduVideoService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.jw.servicebase.excaption.MyException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * <p>
@@ -18,16 +23,30 @@ import org.springframework.stereotype.Service;
 @Service
 public class EduVideoServiceImpl extends ServiceImpl<EduVideoMapper, EduVideo> implements EduVideoService {
 
+    @Autowired
+    VodClient vodClient;
     /**
      * 删除小节
-     *   TODO 同时删除远程服务器上面的视频
      * */
     @Override
+    @Transactional
     public void deleteVideo(String videoId) {
+        //获取视频资源id
+        EduVideo eduVideo = this.getById(videoId);
+        String videoSourceId = eduVideo.getVideoSourceId();
+        //删除小节
         int i = baseMapper.deleteById(videoId);
         if(i==0){
             throw new MyException(20001,"删除失败");
         }
+        //删除视频
+        if(!StringUtils.isEmpty(videoSourceId)){
+            R r = vodClient.deleteVideoById(videoSourceId);
+            if(!r.getSuccess()){
+                throw new MyException(20001,"删除视频失败");
+            }
+        }
+
     }
 
     @Override

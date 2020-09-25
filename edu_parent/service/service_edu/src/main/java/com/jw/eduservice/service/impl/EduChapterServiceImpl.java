@@ -1,6 +1,8 @@
 package com.jw.eduservice.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.jw.commonutils.R;
+import com.jw.eduservice.client.VodClient;
 import com.jw.eduservice.entity.EduChapter;
 import com.jw.eduservice.entity.EduVideo;
 import com.jw.eduservice.entity.chapter.ChapterVo;
@@ -14,6 +16,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +34,10 @@ public class EduChapterServiceImpl extends ServiceImpl<EduChapterMapper, EduChap
 
     @Autowired
     EduVideoService eduVideoService;
+
+    //远程调用视频微服务
+    @Autowired
+    VodClient vodClient;
 
     //根据课程id查询
     @Override
@@ -99,6 +106,14 @@ public class EduChapterServiceImpl extends ServiceImpl<EduChapterMapper, EduChap
     public void deleteChapter(String chapterId) {
         QueryWrapper<EduVideo> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("chapter_id",chapterId);
+        //获取需要删除的视频资源id
+        List<EduVideo> videoList = eduVideoService.list(queryWrapper);
+        String videoIds = "";
+        for (EduVideo eduVideo : videoList) {
+            if(!StringUtils.isEmpty(eduVideo.getVideoSourceId())){
+                videoIds+=eduVideo.getVideoSourceId()+",";
+            }
+        }
         //删除小节
         boolean remove = eduVideoService.remove(queryWrapper);
         if(!remove){
@@ -106,6 +121,14 @@ public class EduChapterServiceImpl extends ServiceImpl<EduChapterMapper, EduChap
         }
         //删除章节
         boolean b = this.removeById(chapterId);
+        if(!StringUtils.isEmpty(videoIds)){
+            videoIds = videoIds.substring(0,videoIds.length()-1);
+            //删除远程服务器上的视频
+            R r = vodClient.deleteVideoById(videoIds);
+            if(!r.getSuccess()){
+                throw new MyException(20001,"删除视频失败");
+            }
+        }
         if(!b){
             throw new MyException(20001,"删除章节失败");
         }
